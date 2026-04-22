@@ -1,22 +1,38 @@
 const axios = require('axios');
-const repos = require('./config');
+const urls = require('./config');
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
     const { q } = req.query;
-    try {
-        const requests = repos.map(url => 
-            axios.get(`${url}${q}`, { timeout: 2500 }).catch(() => ({ data: null }))
-        );
-        const responses = await Promise.all(requests);
-        let combined = [];
-        responses.forEach(resp => {
-            if (!resp.data) return;
-            const data = resp.data.avatars || resp.data.results || (Array.isArray(resp.data) ? resp.data : []);
-            combined = [...combined, ...data];
-        });
-        res.status(200).json(combined);
-    } catch (e) {
-        res.status(500).json({ error: "API Error" });
-    }
-}
 
+    if (!q) {
+        return res.status(400).json({ error: 'Query parameter "q" is required' });
+    }
+
+    try {
+        const requests = urls.map(url => 
+            axios.get(`${url}${encodeURIComponent(q)}`, { timeout: 5000 })
+                .then(response => response.data)
+                .catch(err => {
+                    console.error(`Error fetching from ${url}:`, err.message);
+                    return null;
+                })
+        );
+
+        const results = await Promise.all(requests);
+        
+        // Flatten and normalize data from all sources
+        const combinedResults = results
+            .filter(data => data !== null)
+            .flatMap(data => {
+                if (Array.isArray(data)) return data;
+                if (data.results && Array.isArray(data.results)) return data.results;
+                if (data.avatars && Array.isArray(data.avatars)) return data.avatars;
+                return [];
+            });
+
+        res.status(200).json(combinedResults);
+    } catch (error) {
+        console.error('Search error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};

@@ -1,7 +1,5 @@
 {
-  "name": "vrc-avatar-search",
-  "version": "2026.4.0",
-  "scripts": {
-    "vc-install": "echo 'No install needed'"
-  }
+  "name": "vrc-search-mobile",
+  "version": "1.0.0",
+  "private": true
 }

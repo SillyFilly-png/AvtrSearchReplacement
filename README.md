@@ -1,2 +1,0 @@
-# AvtrSearchReplacement
-For replacement

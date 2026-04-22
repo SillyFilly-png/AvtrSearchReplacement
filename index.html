@@ -6,103 +6,52 @@
     <title>Universal Search</title>
     <style>
         body { background: #050505; color: #fff; font-family: sans-serif; margin: 0; padding: 15px; }
-        .search-bar { display: flex; gap: 10px; margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; }
+        .bar { display: flex; gap: 10px; margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; }
         input { flex: 1; padding: 15px; border-radius: 12px; border: 1px solid #333; background: #111; color: #fff; font-size: 16px; outline: none; }
-        button#go { padding: 0 25px; border-radius: 12px; border: none; background: #007bff; color: white; font-weight: bold; }
-        .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+        button { padding: 0 25px; border-radius: 12px; border: none; background: #007bff; color: white; font-weight: bold; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
         .card { background: #111; border-radius: 12px; border: 1px solid #222; overflow: hidden; }
-        .card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; background: #1a1a1a; }
+        .card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; }
         .p { padding: 10px; }
         .n { font-weight: bold; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .a { font-size: 0.7rem; color: #777; margin-bottom: 10px; }
-        .copy { width: 100%; padding: 10px; background: #007bff1a; border: 1px solid #007bff33; color: #007bff; border-radius: 8px; font-weight: bold; font-size: 0.75rem; cursor: pointer; }
-        #status { text-align: center; margin-top: 40px; color: #444; }
+        .copy { width: 100%; padding: 10px; background: #007bff22; border: 1px solid #007bff44; color: #007bff; border-radius: 8px; font-weight: bold; font-size: 0.75rem; margin-top: 8px; cursor: pointer; }
+        #status { text-align: center; margin-top: 40px; color: #555; }
     </style>
 </head>
 <body>
-
-    <div class="search-bar">
-        <input type="text" id="input" placeholder="Search avatars..." onkeypress="if(event.key==='Enter') run()">
-        <button id="go" onclick="run()">GO</button>
+    <div class="bar">
+        <input type="text" id="i" placeholder="Search..." onkeypress="if(event.key==='Enter') run()">
+        <button onclick="run()">GO</button>
     </div>
-
-    <div id="status">Type a name and press GO</div>
-    <div class="results" id="list"></div>
+    <div id="status">Ready</div>
+    <div class="grid" id="out"></div>
 
     <script>
-        const ENDPOINTS = [
-            "https://api.avtrdb.com/v2/avatar/search?query=",
-            "https://api.avtr.zip/v1/search?q=",
-            "https://requi.dev/vrcx_search.php?search="
-        ];
-
         async function run() {
-            const q = document.getElementById('input').value.trim();
+            const q = document.getElementById('i').value.trim();
             if(!q) return;
-
-            const list = document.getElementById('list');
-            const status = document.getElementById('status');
-            
-            list.innerHTML = "";
-            status.innerText = "Searching from your device...";
+            document.getElementById('out').innerHTML = "";
+            document.getElementById('status').innerText = "Bypassing CORS...";
 
             try {
-                const fetchers = ENDPOINTS.map(url => 
-                    fetch(`${url}${encodeURIComponent(q)}`)
-                        .then(r => r.json())
-                        .catch(() => null)
-                );
-
-                const rawResponses = await Promise.all(fetchers);
-                
-                const allAvatars = rawResponses
-                    .filter(Boolean)
-                    .flatMap(data => {
-                        if (Array.isArray(data)) return data;
-                        if (data.results) return data.results;
-                        if (data.avatars) return data.avatars;
-                        if (data.data) return data.data;
-                        return [];
-                    });
-
-                const normalized = allAvatars.map(a => ({
-                    id: a.id || a.avatarId || a.avatar_id || "",
-                    name: a.name || a.avatarName || "Unknown",
-                    thumb: a.thumbnailImageUrl || a.imageUrl || a.image_url || a.thumbnail || "",
-                    author: a.authorName || a.author_name || "Unknown Creator"
-                })).filter(a => a.id && a.id.startsWith("avtr_"));
-
-                const unique = Array.from(new Map(normalized.map(item => [item.id, item])).values());
-
-                if(unique.length === 0) {
-                    status.innerText = "No results found. The APIs might be blocking direct browser requests (CORS).";
-                } else {
-                    status.innerText = "";
-                    unique.forEach(item => {
-                        const el = document.createElement('div');
-                        el.className = 'card';
-                        el.innerHTML = `
-                            <img src="${item.thumb}" onerror="this.src='https://placehold.co/200?text=No+Img'">
-                            <div class="p">
-                                <div class="n">${item.name}</div>
-                                <div class="a">by ${item.author}</div>
-                                <button class="copy" onclick="cp('${item.id}', this)">COPY ID</button>
-                            </div>
-                        `;
-                        list.appendChild(el);
-                    });
-                }
-            } catch (e) {
-                status.innerText = "Error searching. This might be a CORS block.";
-            }
+                const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                if(!data.length) { document.getElementById('status').innerText = "No results."; return; }
+                document.getElementById('status').innerText = "";
+                data.forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = 'card';
+                    el.innerHTML = `<img src="${item.thumb}" onerror="this.src='https://placehold.co/200?text=No+Img'">
+                        <div class="p"><div class="n">${item.name}</div>
+                        <button class="copy" onclick="cp('${item.id}', this)">COPY ID</button></div>`;
+                    document.getElementById('out').appendChild(el);
+                });
+            } catch (e) { document.getElementById('status').innerText = "Proxy Error."; }
         }
-
         function cp(id, b) {
             navigator.clipboard.writeText(id).then(() => {
-                const old = b.innerText;
                 b.innerText = "COPIED!";
-                b.style.color = "#4bb543";
-                setTimeout(() => { b.innerText = old; b.style.color = "#007bff"; }, 1000);
+                setTimeout(() => { b.innerText = "COPY ID"; }, 1000);
             });
         }
     </script>

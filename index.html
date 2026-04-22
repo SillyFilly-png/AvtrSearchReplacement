@@ -15,84 +15,48 @@
         .p { padding: 10px; }
         .n { font-size: 0.8rem; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 8px; }
         .copy { width: 100%; padding: 10px; background: #222; border: 1px solid #333; color: #007bff; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.7rem; }
-        #status { text-align: center; color: #555; margin-top: 50px; font-size: 0.9rem; }
+        #status { text-align: center; color: #555; margin-top: 50px; }
     </style>
 </head>
 <body>
-
     <div class="bar">
-        <input type="text" id="i" placeholder="Search avatars..." onkeypress="if(event.key==='Enter') run()">
+        <input type="text" id="i" placeholder="Search..." onkeypress="if(event.key==='Enter') run()">
         <button onclick="run()">GO</button>
     </div>
-
     <div id="status">Ready</div>
     <div class="grid" id="out"></div>
 
     <script>
-        // We use a public proxy to bypass CORS since Vercel is failing
-        const PROXY = "https://api.allorigins.win/raw?url=";
-        const ENDPOINTS = [
-            "https://api.avtrdb.com/v2/avatar/search?query=",
-            "https://api.avtr.zip/v1/search?q="
-        ];
-
         async function run() {
             const q = document.getElementById('i').value.trim();
-            if (!q) return;
-
+            if(!q) return;
             const out = document.getElementById('out');
             const status = document.getElementById('status');
-            
             out.innerHTML = "";
-            status.innerText = "Fetching data...";
+            status.innerText = "Querying Edge Proxy...";
 
             try {
-                const results = await Promise.all(ENDPOINTS.map(async (url) => {
-                    try {
-                        const target = url + encodeURIComponent(q);
-                        const resp = await fetch(PROXY + encodeURIComponent(target));
-                        const data = await resp.json();
-                        return Array.isArray(data) ? data : (data.results || data.avatars || []);
-                    } catch (e) { return []; }
-                }));
-
-                const merged = results.flat();
-                
-                if (merged.length === 0) {
-                    status.innerText = "No results found.";
-                    return;
-                }
-
+                const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                if(!data.length) { status.innerText = "No data found."; return; }
                 status.innerText = "";
-                merged.forEach(item => {
-                    const id = item.id || item.avatarId;
-                    if (!id) return;
-
+                data.forEach(item => {
                     const el = document.createElement('div');
                     el.className = 'card';
                     el.innerHTML = `
-                        <img src="${item.thumbnailImageUrl || item.imageUrl || ''}" onerror="this.src='https://placehold.co/200?text=No+Img'">
-                        <div class="p">
-                            <div class="n">${item.name || 'Unknown'}</div>
-                            <button class="copy" onclick="cp('${id}', this)">COPY ID</button>
-                        </div>
-                    `;
+                        <img src="${item.thumb}" onerror="this.src='https://placehold.co/200?text=No+Img'">
+                        <div class="p"><div class="n">${item.name}</div>
+                        <button class="copy" onclick="cp('${item.id}', this)">COPY ID</button></div>`;
                     out.appendChild(el);
                 });
-
-            } catch (err) {
-                status.innerText = "Connection error.";
-            }
+            } catch (e) { status.innerText = "Connection failed."; }
         }
-
-        function cp(id, btn) {
+        function cp(id, b) {
             navigator.clipboard.writeText(id).then(() => {
-                const old = btn.innerText;
-                btn.innerText = "COPIED!";
-                setTimeout(() => { btn.innerText = old; }, 1000);
+                const old = b.innerText; b.innerText = "COPIED!";
+                setTimeout(() => { b.innerText = old; }, 1000);
             });
         }
     </script>
 </body>
 </html>
-

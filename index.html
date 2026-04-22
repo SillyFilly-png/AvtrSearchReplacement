@@ -1,74 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VRC Search 2026</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        body { background: #0b0e11; color: #e9ecef; font-family: 'Segoe UI', system-ui; padding: 15px; margin: 0; }
-        .search-container { display: flex; gap: 10px; position: sticky; top: 10px; z-index: 10; background: #0b0e11; padding-bottom: 15px; }
-        input { flex: 1; padding: 14px; border-radius: 10px; border: 1px solid #2d333b; background: #161b22; color: white; font-size: 16px; outline: none; }
-        button { padding: 0 20px; border-radius: 10px; border: none; background: #238636; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.95); background: #2ea043; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-        .card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; overflow: hidden; animation: fadeIn 0.3s ease; }
-        .card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; background: #010409; }
-        .info { padding: 10px; }
-        .name { font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .copy-btn { width: 100%; padding: 8px; background: #21262d; border: 1px solid #30363d; color: #58a6ff; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.75rem; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        body { background: #010409; color: #c9d1d9; font-family: sans-serif; padding: 15px; margin: 0; }
+        .box { display: flex; gap: 8px; position: sticky; top: 0; background: #010409; padding: 10px 0; }
+        input { flex: 1; padding: 15px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; color: #fff; font-size: 16px; outline: none; }
+        button { padding: 0 20px; background: #238636; color: #fff; border: none; border-radius: 8px; font-weight: bold; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+        .card { background: #161b22; border-radius: 8px; border: 1px solid #30363d; padding: 8px; }
+        .card img { width: 100%; aspect-ratio: 1/1; border-radius: 6px; object-fit: cover; }
+        .card div { font-size: 12px; margin: 8px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .copy { width: 100%; background: #21262d; border: 1px solid #30363d; color: #58a6ff; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 11px; }
     </style>
 </head>
 <body>
-    <div class="search-container">
-        <input type="text" id="q" placeholder="Search Avatars..." onkeypress="if(event.key==='Enter') doSearch()">
-        <button onclick="doSearch()">SCAN</button>
+    <div class="box">
+        <input type="text" id="i" placeholder="Search Avatars...">
+        <button onclick="go()">GO</button>
     </div>
-    <div id="status" style="text-align: center; color: #8b949e; margin: 20px;">Enter a keyword to begin</div>
-    <div class="grid" id="results"></div>
+    <div id="st" style="text-align: center; color: #8b949e; margin-top: 20px;">Ready</div>
+    <div class="grid" id="out"></div>
 
     <script>
-        async function doSearch() {
-            const query = document.getElementById('q').value.trim();
-            if(!query) return;
-            const resBox = document.getElementById('results');
-            const status = document.getElementById('status');
+        async function go() {
+            const q = document.getElementById('i').value;
+            const st = document.getElementById('st');
+            const out = document.getElementById('out');
+            if(!q) return;
+            st.innerText = "Searching...";
+            out.innerHTML = "";
             
-            resBox.innerHTML = "";
-            status.innerText = "Querying Edge Proxy...";
-
             try {
-                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-                const data = await response.json();
-                
-                if(!data || data.length === 0) {
-                    status.innerText = "No results found.";
-                    return;
-                }
-
-                status.innerText = "";
-                data.forEach(av => {
-                    const div = document.createElement('div');
-                    div.className = 'card';
-                    div.innerHTML = `
-                        <img src="${av.thumbnailImageUrl || av.imageUrl || ''}" loading="lazy">
-                        <div class="info">
-                            <div class="name">${av.name}</div>
-                            <button class="copy-btn" onclick="copyId('${av.id}', this)">COPY ID</button>
-                        </div>`;
-                    resBox.appendChild(div);
+                const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+                const d = await r.json();
+                if(!d.length) { st.innerText = "No results found."; return; }
+                st.innerText = "";
+                d.forEach(a => {
+                    const el = document.createElement('div');
+                    el.className = 'card';
+                    el.innerHTML = `<img src="${a.thumbnailImageUrl || ''}"><div title="${a.name}">${a.name}</div><button class="copy" onclick="cp('${a.id}', this)">COPY ID</button>`;
+                    out.appendChild(el);
                 });
-            } catch (err) {
-                status.innerText = "Error: Proxy Blocked or Offline.";
-            }
+            } catch(e) { st.innerText = "Search failed."; }
         }
-
-        function copyId(id, btn) {
+        function cp(id, b) {
             navigator.clipboard.writeText(id);
-            const original = btn.innerText;
-            btn.innerText = "COPIED!";
-            btn.style.color = "#3fb950";
-            setTimeout(() => { btn.innerText = original; btn.style.color = "#58a6ff"; }, 1000);
+            b.innerText = "COPIED!";
+            setTimeout(() => b.innerText = "COPY ID", 1000);
         }
     </script>
 </body>

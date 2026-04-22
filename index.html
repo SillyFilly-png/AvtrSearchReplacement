@@ -1,51 +1,51 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Universal Search</title>
+    <title>Avatar Search</title>
     <style>
-        body { font-family: sans-serif; background: #080808; color: #eee; margin: 0; padding: 15px; }
-        .bar { display: flex; gap: 8px; margin-bottom: 20px; position: sticky; top: 10px; z-index: 10; }
-        input { flex: 1; padding: 14px; border-radius: 10px; border: 1px solid #333; background: #111; color: white; font-size: 16px; outline: none; }
-        button#btn { padding: 0 20px; border-radius: 10px; border: none; background: #007bff; color: white; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-        .card { background: #121212; border-radius: 12px; overflow: hidden; border: 1px solid #222; position: relative; }
+        body { background: #050505; color: #fff; font-family: sans-serif; margin: 0; padding: 15px; }
+        .search-bar { display: flex; gap: 10px; margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; }
+        input { flex: 1; padding: 15px; border-radius: 12px; border: 1px solid #333; background: #111; color: #fff; font-size: 16px; outline: none; }
+        button#go { padding: 0 25px; border-radius: 12px; border: none; background: #007bff; color: white; font-weight: bold; cursor: pointer; }
+        .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+        .card { background: #111; border-radius: 12px; border: 1px solid #222; overflow: hidden; }
         .card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; background: #1a1a1a; }
-        .info { padding: 10px; }
-        .name { font-size: 0.8rem; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-        .author { font-size: 0.7rem; color: #888; margin-bottom: 8px; }
-        .copy { width: 100%; padding: 10px; background: #222; color: #007bff; border: 1px solid #333; border-radius: 6px; font-weight: bold; font-size: 0.7rem; cursor: pointer; }
-        #status { text-align: center; margin: 30px; color: #666; font-size: 0.9rem; }
+        .p { padding: 10px; }
+        .n { font-weight: bold; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .a { font-size: 0.7rem; color: #777; margin-bottom: 10px; }
+        .copy { width: 100%; padding: 10px; background: #007bff1a; border: 1px solid #007bff33; color: #007bff; border-radius: 8px; font-weight: bold; font-size: 0.75rem; cursor: pointer; }
+        #status { text-align: center; margin-top: 40px; color: #444; }
     </style>
 </head>
 <body>
 
-    <div class="bar">
-        <input type="text" id="q" placeholder="Search avatars..." onkeypress="if(event.key==='Enter') search()">
-        <button id="btn" onclick="search()">GO</button>
+    <div class="search-bar">
+        <input type="text" id="input" placeholder="Search..." onkeypress="if(event.key==='Enter') run()">
+        <button id="go" onclick="run()">GO</button>
     </div>
 
-    <div id="status">Ready.</div>
-    <div class="grid" id="out"></div>
+    <div id="status">Type and press GO</div>
+    <div class="results" id="list"></div>
 
     <script>
-        async function search() {
-            const val = document.getElementById('q').value.trim();
-            if(!val) return;
-            
-            const out = document.getElementById('out');
+        async function run() {
+            const q = document.getElementById('input').value.trim();
+            if(!q) return;
+
+            const list = document.getElementById('list');
             const status = document.getElementById('status');
             
-            out.innerHTML = "";
-            status.innerText = "Searching databases...";
+            list.innerHTML = "";
+            status.innerText = "Querying databases...";
 
             try {
-                const r = await fetch(`/api/search?q=${encodeURIComponent(val)}`);
-                const data = await r.json();
+                const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
 
                 if(!data || data.length === 0) {
-                    status.innerText = "No avatars found for '" + val + "'.";
+                    status.innerText = "No results found for '" + q + "'.";
                     return;
                 }
 
@@ -53,34 +53,29 @@
                 data.forEach(item => {
                     const el = document.createElement('div');
                     el.className = 'card';
-                    const img = item.thumbnail || 'https://placehold.co/200?text=No+Image';
                     el.innerHTML = `
-                        <img src="${img}" loading="lazy" onerror="this.src='https://placehold.co/200?text=No+Image'">
-                        <div class="info">
-                            <div class="name">${item.name}</div>
-                            <div class="author">by ${item.author}</div>
-                            <button class="copy" onclick="copyId('${item.id}', this)">COPY ID</button>
+                        <img src="${item.thumb}" onerror="this.src='https://placehold.co/200?text=No+Img'">
+                        <div class="p">
+                            <div class="n">${item.name}</div>
+                            <div class="a">by ${item.author}</div>
+                            <button class="copy" onclick="cp('${item.id}', this)">COPY ID</button>
                         </div>
                     `;
-                    out.appendChild(el);
+                    list.appendChild(el);
                 });
             } catch (e) {
-                status.innerText = "Backend Error. Check Vercel logs.";
+                status.innerText = "API Error. Check Vercel logs.";
             }
         }
 
-        function copyId(id, btn) {
+        function cp(id, b) {
             navigator.clipboard.writeText(id).then(() => {
-                const old = btn.innerText;
-                btn.innerText = "COPIED!";
-                btn.style.color = "#4bb543";
-                setTimeout(() => { 
-                    btn.innerText = old; 
-                    btn.style.color = "#007bff";
-                }, 1200);
+                const old = b.innerText;
+                b.innerText = "COPIED!";
+                b.style.color = "#4bb543";
+                setTimeout(() => { b.innerText = old; b.style.color = "#007bff"; }, 1000);
             });
         }
     </script>
 </body>
 </html>
-

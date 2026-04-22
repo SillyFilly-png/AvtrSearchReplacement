@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const PROVIDERS = [
+const ENDPOINTS = [
     "https://api.avtrdb.com/v2/avatar/search?query=",
     "https://api.avtr.zip/v1/search?q=",
     "https://requi.dev/vrcx_search.php?search="
@@ -8,34 +8,35 @@ const PROVIDERS = [
 
 module.exports = async (req, res) => {
     const { q } = req.query;
-    if (!q) return res.status(400).json({ error: 'Query required' });
+    if (!q) return res.status(400).json({ error: 'Missing query' });
 
-    // Set headers to mimic VRCX / Chrome
+    // This specific header setup is REQUIRED to bypass the "Not Found" block
     const config = {
-        timeout: 6000,
+        timeout: 8000,
         headers: {
             'User-Agent': 'VRCX/1.0.0',
             'Accept': 'application/json',
-            'Referer': 'https://vrcx-team.github.io/VRCX/'
+            'Origin': 'https://vrcx-team.github.io',
+            'Referer': 'https://vrcx-team.github.io/'
         }
     };
 
     try {
-        const requests = PROVIDERS.map(url => 
+        const fetchers = ENDPOINTS.map(url => 
             axios.get(`${url}${encodeURIComponent(q)}`, config)
                 .then(r => r.data)
-                .catch(err => {
-                    console.log(`Failed: ${url} - ${err.message}`);
+                .catch(e => {
+                    console.log(`Endpoint failed: ${url}`);
                     return null;
                 })
         );
 
-        const rawData = await Promise.all(requests);
+        const rawResponses = await Promise.all(fetchers);
         
-        // Deep parsing to find the avatar list in any response format
-        const combined = rawData
+        const allAvatars = rawResponses
             .filter(Boolean)
             .flatMap(data => {
+                // Parse varying response shapes from different DBs
                 if (Array.isArray(data)) return data;
                 if (data.results && Array.isArray(data.results)) return data.results;
                 if (data.avatars && Array.isArray(data.avatars)) return data.avatars;
@@ -43,20 +44,20 @@ module.exports = async (req, res) => {
                 return [];
             });
 
-        // Normalize data so the HTML always finds the right fields
-        const normalized = combined.map(item => ({
-            id: item.id || item.avatarId || item.id_avatar || "",
-            name: item.name || item.avatarName || "Unknown Avatar",
-            thumbnail: item.thumbnailImageUrl || item.imageUrl || item.image_url || item.thumbnail || "",
-            author: item.authorName || item.author_name || "Unknown Author"
-        })).filter(item => item.id !== "");
+        // Map everything to a standard format so the HTML doesn't break
+        const normalized = allAvatars.map(a => ({
+            id: a.id || a.avatarId || a.avatar_id || "",
+            name: a.name || a.avatarName || "Unknown",
+            thumb: a.thumbnailImageUrl || a.imageUrl || a.image_url || a.thumbnail || "",
+            author: a.authorName || a.author_name || "Unknown Creator"
+        })).filter(a => a.id.startsWith("avtr_"));
 
-        // Deduplicate
-        const unique = Array.from(new Map(normalized.map(a => [a.id, a])).values());
+        // Remove duplicates
+        const unique = Array.from(new Map(normalized.map(item => [item.id, item])).values());
 
         res.status(200).json(unique);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Search Engine Error' });
     }
 };
 

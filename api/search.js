@@ -8,56 +8,45 @@ const ENDPOINTS = [
 
 module.exports = async (req, res) => {
     const { q } = req.query;
-    if (!q) return res.status(400).json({ error: 'Missing query' });
+    if (!q) return res.status(400).json({ error: 'No query' });
 
-    // This specific header setup is REQUIRED to bypass the "Not Found" block
-    const config = {
-        timeout: 8000,
+    const axiosConfig = {
+        timeout: 7000,
         headers: {
             'User-Agent': 'VRCX/1.0.0',
-            'Accept': 'application/json',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
             'Origin': 'https://vrcx-team.github.io',
             'Referer': 'https://vrcx-team.github.io/'
         }
     };
 
     try {
-        const fetchers = ENDPOINTS.map(url => 
-            axios.get(`${url}${encodeURIComponent(q)}`, config)
+        const promises = ENDPOINTS.map(url => 
+            axios.get(`${url}${encodeURIComponent(q)}`, axiosConfig)
                 .then(r => r.data)
-                .catch(e => {
-                    console.log(`Endpoint failed: ${url}`);
-                    return null;
-                })
+                .catch(() => null)
         );
 
-        const rawResponses = await Promise.all(fetchers);
+        const responses = await Promise.all(promises);
         
-        const allAvatars = rawResponses
-            .filter(Boolean)
-            .flatMap(data => {
-                // Parse varying response shapes from different DBs
-                if (Array.isArray(data)) return data;
-                if (data.results && Array.isArray(data.results)) return data.results;
-                if (data.avatars && Array.isArray(data.avatars)) return data.avatars;
-                if (data.data && Array.isArray(data.data)) return data.data;
-                return [];
-            });
+        const merged = responses.filter(Boolean).flatMap(data => {
+            if (Array.isArray(data)) return data;
+            return data.results || data.avatars || data.data || [];
+        });
 
-        // Map everything to a standard format so the HTML doesn't break
-        const normalized = allAvatars.map(a => ({
+        const normalized = merged.map(a => ({
             id: a.id || a.avatarId || a.avatar_id || "",
             name: a.name || a.avatarName || "Unknown",
             thumb: a.thumbnailImageUrl || a.imageUrl || a.image_url || a.thumbnail || "",
-            author: a.authorName || a.author_name || "Unknown Creator"
+            author: a.authorName || a.author_name || "Unknown Author"
         })).filter(a => a.id.startsWith("avtr_"));
 
-        // Remove duplicates
-        const unique = Array.from(new Map(normalized.map(item => [item.id, item])).values());
+        const final = Array.from(new Map(normalized.map(item => [item.id, item])).values());
 
-        res.status(200).json(unique);
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.status(200).json(final);
     } catch (err) {
-        res.status(500).json({ error: 'Search Engine Error' });
+        res.status(500).json([]);
     }
 };
-

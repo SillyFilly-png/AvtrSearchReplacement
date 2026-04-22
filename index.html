@@ -1,29 +1,28 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Universal Search</title>
     <style>
-        body { background: #050505; color: #fff; font-family: sans-serif; margin: 0; padding: 15px; }
-        .bar { display: flex; gap: 10px; margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; }
-        input { flex: 1; padding: 15px; border-radius: 12px; border: 1px solid #333; background: #111; color: #fff; font-size: 16px; outline: none; }
-        button { padding: 0 25px; border-radius: 12px; border: none; background: #007bff; color: white; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-        .card { background: #111; border-radius: 12px; border: 1px solid #222; overflow: hidden; }
-        .card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; }
-        .p { padding: 10px; }
-        .n { font-weight: bold; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .copy { width: 100%; padding: 10px; background: #007bff22; border: 1px solid #007bff44; color: #007bff; border-radius: 8px; font-weight: bold; font-size: 0.75rem; margin-top: 8px; cursor: pointer; }
-        #status { text-align: center; margin-top: 40px; color: #555; }
+        body { background: #000; color: #fff; font-family: sans-serif; padding: 15px; margin: 0; }
+        .bar { display: flex; gap: 10px; margin-bottom: 20px; position: sticky; top: 10px; z-index: 10; }
+        input { flex: 1; padding: 15px; border-radius: 10px; border: 1px solid #333; background: #111; color: #fff; font-size: 16px; outline: none; }
+        button { padding: 0 20px; border-radius: 10px; border: none; background: #007bff; color: white; font-weight: bold; cursor: pointer; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+        .card { background: #111; border-radius: 12px; border: 1px solid #222; overflow: hidden; display: flex; flex-direction: column; }
+        .card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; background: #1a1a1a; }
+        .p { padding: 10px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .n { font-size: 0.8rem; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .copy { width: 100%; padding: 10px; background: #222; border: 1px solid #333; color: #007bff; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 8px; font-size: 0.7rem; }
     </style>
 </head>
 <body>
     <div class="bar">
-        <input type="text" id="i" placeholder="Search..." onkeypress="if(event.key==='Enter') run()">
-        <button onclick="run()">GO</button>
+        <input type="text" id="i" placeholder="Avatar name..." onkeypress="if(event.key==='Enter') run()">
+        <button onclick="run()">SEARCH</button>
     </div>
-    <div id="status">Ready</div>
+    <div id="st" style="text-align:center; color:#555; margin-top: 50px;">Enter search term...</div>
     <div class="grid" id="out"></div>
 
     <script>
@@ -31,27 +30,31 @@
             const q = document.getElementById('i').value.trim();
             if(!q) return;
             document.getElementById('out').innerHTML = "";
-            document.getElementById('status').innerText = "Bypassing CORS...";
+            document.getElementById('st').innerText = "Querying...";
 
             try {
                 const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
                 const data = await res.json();
-                if(!data.length) { document.getElementById('status').innerText = "No results."; return; }
-                document.getElementById('status').innerText = "";
+                if(!data.length) { document.getElementById('st').innerText = "Nothing found."; return; }
+                document.getElementById('st').innerText = "";
                 data.forEach(item => {
                     const el = document.createElement('div');
                     el.className = 'card';
-                    el.innerHTML = `<img src="${item.thumb}" onerror="this.src='https://placehold.co/200?text=No+Img'">
-                        <div class="p"><div class="n">${item.name}</div>
-                        <button class="copy" onclick="cp('${item.id}', this)">COPY ID</button></div>`;
+                    el.innerHTML = `
+                        <img src="${item.thumb}" onerror="this.src='https://placehold.co/200?text=No+Preview'">
+                        <div class="p">
+                            <div class="n">${item.name}</div>
+                            <button class="copy" onclick="cp('${item.id}', this)">COPY ID</button>
+                        </div>`;
                     document.getElementById('out').appendChild(el);
                 });
-            } catch (e) { document.getElementById('status').innerText = "Proxy Error."; }
+            } catch (e) { document.getElementById('st').innerText = "Error contacting API."; }
         }
         function cp(id, b) {
             navigator.clipboard.writeText(id).then(() => {
+                const old = b.innerText;
                 b.innerText = "COPIED!";
-                setTimeout(() => { b.innerText = "COPY ID"; }, 1000);
+                setTimeout(() => { b.innerText = old; }, 1000);
             });
         }
     </script>

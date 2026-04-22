@@ -1,0 +1,7 @@
+{
+  "name": "vrc-avatar-search",
+  "version": "2026.4.0",
+  "scripts": {
+    "vc-install": "echo 'No install needed'"
+  }
+}

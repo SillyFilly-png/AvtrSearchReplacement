@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Universal Search</title>
+    <title>Universal Avatar Search</title>
     <style>
         body { background: #000; color: #fff; font-family: sans-serif; padding: 15px; margin: 0; }
         .bar { display: flex; gap: 8px; margin-bottom: 20px; position: sticky; top: 10px; z-index: 100; }
@@ -19,42 +19,71 @@
     </style>
 </head>
 <body>
+
     <div class="bar">
-        <input type="text" id="i" placeholder="Search..." onkeypress="if(event.key==='Enter') run()">
+        <input type="text" id="i" placeholder="Search avatars..." onkeypress="if(event.key==='Enter') run()">
         <button onclick="run()">GO</button>
     </div>
+
     <div id="status">Ready</div>
     <div class="grid" id="out"></div>
 
     <script>
+        // Using a more reliable CORS proxy that mimics browser headers
+        const PROXY = "https://api.allorigins.win/get?url=";
+        
         async function run() {
             const q = document.getElementById('i').value.trim();
-            if(!q) return;
+            if (!q) return;
+
             const out = document.getElementById('out');
             const status = document.getElementById('status');
+            
             out.innerHTML = "";
-            status.innerText = "Querying Edge Proxy...";
+            status.innerText = "Bypassing blocks...";
+
+            // Only using the most stable endpoint for this fix
+            const targetUrl = `https://api.avtrdb.com/v2/avatar/search?query=${encodeURIComponent(q)}`;
 
             try {
-                const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-                const data = await res.json();
-                if(!data.length) { status.innerText = "No data found."; return; }
+                const response = await fetch(PROXY + encodeURIComponent(targetUrl));
+                const json = await response.json();
+                
+                // AllOrigins returns the data inside a 'contents' string
+                const data = JSON.parse(json.contents);
+                
+                const avatars = Array.isArray(data) ? data : (data.results || []);
+
+                if (avatars.length === 0) {
+                    status.innerText = "No results found. The API is likely blocking this proxy.";
+                    return;
+                }
+
                 status.innerText = "";
-                data.forEach(item => {
+                avatars.forEach(item => {
                     const el = document.createElement('div');
                     el.className = 'card';
                     el.innerHTML = `
-                        <img src="${item.thumb}" onerror="this.src='https://placehold.co/200?text=No+Img'">
-                        <div class="p"><div class="n">${item.name}</div>
-                        <button class="copy" onclick="cp('${item.id}', this)">COPY ID</button></div>`;
+                        <img src="${item.thumbnailImageUrl || item.imageUrl || ''}" onerror="this.src='https://placehold.co/200?text=No+Img'">
+                        <div class="p">
+                            <div class="n">${item.name || 'Unknown'}</div>
+                            <button class="copy" onclick="cp('${item.id}', this)">COPY ID</button>
+                        </div>
+                    `;
                     out.appendChild(el);
                 });
-            } catch (e) { status.innerText = "Connection failed."; }
+
+            } catch (err) {
+                status.innerText = "Proxy error. Try again in a moment.";
+                console.error(err);
+            }
         }
-        function cp(id, b) {
+
+        function cp(id, btn) {
             navigator.clipboard.writeText(id).then(() => {
-                const old = b.innerText; b.innerText = "COPIED!";
-                setTimeout(() => { b.innerText = old; }, 1000);
+                const old = btn.innerText;
+                btn.innerText = "COPIED!";
+                setTimeout(() => { btn.innerText = old; }, 1000);
             });
         }
     </script>
